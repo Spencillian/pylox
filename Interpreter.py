@@ -10,6 +10,7 @@ class Interpreter:
     def __init__(self):
         self.globals: Environment = Environment()
         self.environment: Environment = self.globals
+        self.locals: dict[Expr, int] = dict()
 
         from LoxCallable import Clock
         self.globals.define("clock", Clock())
@@ -21,6 +22,9 @@ class Interpreter:
         except RuntimeError as error:
             import Lox
             Lox.runtime_error(error)
+
+    def resolve(self, expr: Expr, depth: int) -> None:
+        self.locals[expr] = depth
 
     def execute(self, stmt: Stmt) -> None:
         match stmt:
@@ -161,10 +165,25 @@ class Interpreter:
 
     def visitAssignExpr(self, expr: Assign) -> Any:
         value: Any = self.evaluate(expr.value)
-        self.environment.assign(expr.name, value)
+
+
+        if expr in self.locals.keys():
+            distance: int = self.locals[expr]
+            return self.environment.assignAt(distance, expr.name, value)
+        else:
+            self.globals.assign(expr.name, value)
+
+        return value
 
     def visitVariableExpr(self, expr: Variable) -> Any:
-        return self.environment.get(expr.name)
+        return self.lookUpVariable(expr.name, expr)
+
+    def lookUpVariable(self, name: Token, expr: Expr) -> Any:
+        if expr in self.locals.keys():
+            distance: int = self.locals[expr]
+            return self.environment.getAt(distance, name.lexeme)
+        else:
+            return self.globals.get(name)
 
     def visitLiteralExpr(self, expr: Literal) -> Any:
         return expr.value

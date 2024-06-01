@@ -3,10 +3,10 @@
 import sys
 from Scanner import Scanner, TokenType
 from Token import Token
-from Parser import Parser, Expr, Stmt
-# from ASTPrinter import paranthesize
+from Parser import Parser, Stmt
 from RuntimeError import RuntimeError
 from Interpreter import Interpreter
+from Resolver import Resolver
 
 
 interpreter = Interpreter()
@@ -20,6 +20,12 @@ def run(source: str) -> None:
 
     parser: Parser = Parser(tokens)
     stmts: list[Stmt] = parser.parse()
+
+    if hadError:
+        return
+
+    resolver: Resolver = Resolver(interpreter)
+    resolver.resolve(stmts)
 
     if hadError:
         return
