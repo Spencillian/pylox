@@ -22,7 +22,9 @@ class Parser:
 
     def declaration(self) -> Stmt:
         try:
-            if self.match(TokenType.FUN):
+            if self.match(TokenType.CLASS):
+                return self.classDeclaration()
+            elif self.match(TokenType.FUN):
                 return self.function("function")
             elif self.match(TokenType.VAR):
                 return self.varDeclaration()
@@ -31,7 +33,19 @@ class Parser:
             self.synchronize()
             return Stmt()
 
-    def function(self, kind: str) -> Stmt:
+    def classDeclaration(self) -> Stmt:
+        name: Token = self.consume(TokenType.IDENTIFIER, "Expect class name.")
+        self.consume(TokenType.LEFT_BRACE, "Expect '{' before class body.")
+
+        methods: list[Function] = []
+        while not self.check(TokenType.RIGHT_BRACE) and not self.isAtEnd():
+            methods.append(self.function("method"))
+
+        self.consume(TokenType.RIGHT_BRACE, "Expect '}' after class body.")
+
+        return Class(name, methods)
+
+    def function(self, kind: str) -> Function:
         name: Token = self.consume(
             TokenType.IDENTIFIER, f"Expected {kind} name.")
 
@@ -194,9 +208,13 @@ class Parser:
             equals: Token = self.previous()
             value: Expr = self.assignment()
 
-            if type(expr) is Variable:
-                name: Token = expr.name
-                return Assign(name, value)
+            match expr:
+                case Variable():
+                    name: Token = expr.name
+                    return Assign(name, value)
+                case Get():
+                    get: Get = expr
+                    return Set(get.thing, get.name, value)
 
             import Lox
             Lox.parse_error(equals, "Invalid assignment target.")
@@ -280,6 +298,11 @@ class Parser:
         while True:
             if self.match(TokenType.LEFT_PAREN):
                 expr = self.finishCall(expr)
+            elif self.match(TokenType.DOT):
+                name: Token = self.consume(
+                    TokenType.IDENTIFIER, 
+                    "Expected property name after '.'.")
+                expr = Get(expr, name)
             else:
                 break
 
@@ -309,6 +332,8 @@ class Parser:
             return Literal(None)
         elif self.match(TokenType.NUMBER, TokenType.STRING):
             return Literal(self.previous().literal)
+        elif self.match(TokenType.THIS):
+            return This(self.previous())
         elif self.match(TokenType.IDENTIFIER):
             return Variable(self.previous())
         elif self.match(TokenType.LEFT_PAREN):

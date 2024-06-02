@@ -1,4 +1,5 @@
 from Expr import *
+from LoxCallable import LoxInstance
 from Stmt import *
 from Environment import Environment
 from TokenType import TokenType
@@ -44,6 +45,8 @@ class Interpreter:
                 return self.visitFunctionStmt(stmt)
             case Return():
                 return self.visitReturnStmt(stmt)
+            case Class():
+                return self.visitClassStmt(stmt)
             case _:
                 raise Exception(f"Attempted to execute unmatched stmt type.")
 
@@ -65,6 +68,12 @@ class Interpreter:
                 return self.visitLogicalExpr(expr)
             case Call():
                 return self.visitCallExpr(expr)
+            case Get():
+                return self.visitGetExpr(expr)
+            case Set():
+                return self.visitSetExpr(expr)
+            case This():
+                return self.visitThisExpr(expr)
             case _:
                 raise Exception(f"Attempted to evaluate unmatched expression type.")
 
@@ -89,6 +98,20 @@ class Interpreter:
         finally:
             self.environment = previous
 
+    def visitClassStmt(self, stmt: Class) -> None:
+        self.environment.define(stmt.name.lexeme, None)
+
+        from LoxCallable import LoxFunction
+        methods: dict[str, LoxFunction] = dict()
+        for method in stmt.methods:
+            function: LoxFunction = LoxFunction(
+                method, self.environment, method.name.lexeme == "init")
+            methods[method.name.lexeme] = function
+
+        from LoxCallable import LoxClass
+        loxClass: LoxClass = LoxClass(stmt.name.lexeme, methods)
+        self.environment.assign(stmt.name, loxClass)
+
     def visitReturnStmt(self, stmt: Return) -> None:
         value: Any = None
 
@@ -99,7 +122,8 @@ class Interpreter:
 
     def visitFunctionStmt(self, stmt: Function) -> None:
         from LoxCallable import LoxFunction
-        function: LoxFunction = LoxFunction(stmt, self.environment)
+        function: LoxFunction = LoxFunction(stmt, self.environment, 
+                                            False)
         self.environment.define(stmt.name.lexeme, function)
 
     def visitWhileStmt(self, stmt: While) -> None:
@@ -128,6 +152,25 @@ class Interpreter:
     def visitPrintStmt(self, stmt: Print) -> None:
         value: Any = self.evaluate(stmt.expression)
         print(self.stringify(value))
+
+    def visitThisExpr(self, expr: This) -> None:
+        return self.lookUpVariable(expr.keyword, expr)
+
+    def visitSetExpr(self, expr: Set) -> Any:
+        thing: Any = self.evaluate(expr.thing)
+
+        if not type(thing) is LoxInstance:
+            raise RuntimeError(expr.name, "Only instances have fields.")
+
+        value: Any = self.evaluate(expr.value)
+        thing.setField(expr.name, value)
+
+    def visitGetExpr(self, expr: Get) -> Any:
+        thing: Any = self.evaluate(expr.thing)
+        if type(thing) is LoxInstance:
+            return thing.getField(expr.name)
+
+        raise RuntimeError(expr.name, "Only instances have properties.")
 
     def visitCallExpr(self, expr: Call) -> Any:
         callee: Any = self.evaluate(expr.callee)
@@ -240,7 +283,7 @@ class Interpreter:
                     return float(left) + float(right)
                 elif type(left) is str and type(right) is str:
                     return str(left) + str(right)
-                
+
                 raise RuntimeError(
                     expr.operator,
                     "Operands must both be numbers or strings")

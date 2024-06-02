@@ -6,12 +6,19 @@ from enum import Enum, auto
 class FunType(Enum):
     NONE = auto()
     FUNCTION = auto()
+    INITIALIZER = auto()
+    METHOD = auto()
+
+class ClassType(Enum):
+    NONE = auto()
+    CLASS = auto()
 
 class Resolver:
     def __init__(self, interpreter: Interpreter) -> None:
         self.interpreter: Interpreter = interpreter
         self.scopes: list[dict[str, bool]] = []
         self.currentFunction: FunType = FunType.NONE
+        self.currentClass: ClassType = ClassType.NONE
 
     def resolve(self, code: list[Stmt] | Stmt | Expr) -> None:
         match code:
@@ -65,6 +72,8 @@ class Resolver:
                 self.visitWhileStmt(stmt)
             case Block():
                 self.visitBlockStmt(stmt)
+            case Class():
+                self.visitClassStmt(stmt)
             case _:
                 print(f"Could not resolve stmt of type: {type(stmt)}")
 
@@ -86,6 +95,12 @@ class Resolver:
                 self.visitLogicalExpr(expr)
             case Unary():
                 self.visitUnaryExpr(expr)
+            case Get():
+                self.visitGetExpr(expr)
+            case Set():
+                self.visitSetExpr(expr)
+            case This():
+                self.visitThisExpr(expr)
             case _:
                 print(f"Could not resolve expr of type: {type(expr)}")
 
@@ -132,6 +147,25 @@ class Resolver:
         self.resolve(stmt.statements)
         self.endScope()
 
+    def visitClassStmt(self, stmt: Class) -> None:
+        enclosingClass: ClassType = self.currentClass
+        self.currentClass = ClassType.CLASS
+
+        self.declare(stmt.name)
+        self.define(stmt.name)
+
+        self.beginScope()
+        self.scopes[-1]["this"] = True
+
+        for method in stmt.methods:
+            declaration: FunType = FunType.METHOD
+            if method.name.lexeme == "init":
+                declaration = FunType.INITIALIZER
+            self.resolveFunction(method, declaration)
+
+        self.endScope()
+        self.currentClass = enclosingClass
+
     def visitWhileStmt(self, stmt: While) -> None:
         self.resolve(stmt.condition)
         self.resolve(stmt.body)
@@ -142,6 +176,11 @@ class Resolver:
             Lox.parse_error(stmt.keyword, "Can't return from top-level code")
 
         if stmt.value is not None:
+            if self.currentFunction == FunType.INITIALIZER:
+                import Lox
+                Lox.parse_error(
+                    stmt.keyword, 
+                    "Can't return a value from an initializer.")
             self.resolve(stmt.value)
 
     def visitPrintStmt(self, stmt: Print) -> None:
@@ -153,6 +192,13 @@ class Resolver:
         if stmt.elseBranch is not None:
             self.resolve(stmt.elseBranch)
 
+    def visitThisExpr(self, expr: This) -> None:
+        if self.currentClass == ClassType.NONE:
+            import Lox
+            Lox.parse_error(expr.keyword, "Can't use 'this' outside of a class")
+
+        self.resolveLocal(expr, expr.keyword)
+
     def visitUnaryExpr(self, expr: Unary) -> None:
         self.resolve(expr.right)
 
@@ -162,6 +208,13 @@ class Resolver:
 
     def visitExpressionStmt(self, stmt: Expression) -> None:
         self.resolve(stmt.expression)
+
+    def visitSetExpr(self, expr: Set) -> None:
+        self.resolve(expr.value)
+        self.resolve(expr.thing)
+
+    def visitGetExpr(self, expr: Get) -> None:
+        self.resolve(expr.thing)
 
     def visitGroupExpr(self, expr: Group) -> None:
         self.resolve(expr.expression)

@@ -44,3 +44,8 @@ class Return(Stmt):
     def __init__(self, keyword: Token, value: Expr | None) -> None:
         self.keyword: Token = keyword
         self.value: Expr | None = value
+
+class Class(Stmt):
+    def __init__(self, name: Token, methods: list[Function]) -> None:
+        self.name: Token = name
+        self.methods: list[Function] = methods

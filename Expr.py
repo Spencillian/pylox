@@ -44,3 +44,19 @@ class Call(Expr):
         self.callee: Expr = callee
         self.paren: Token = paren
         self.arguments: list[Expr] = arguments
+
+class Get(Expr):
+    def __init__(self, thing: Expr, name: Token) -> None:
+        self.thing: Expr = thing
+        self.name: Token = name
+
+class Set(Expr):
+    def __init__(self, thing: Expr, name: Token, value: Expr) -> None:
+        self.thing: Expr = thing
+        self.name: Token = name
+        self.value: Expr = value
+
+class This(Expr):
+    def __init__(self, keyword: Token) -> None:
+        self.keyword: Token = keyword
+
