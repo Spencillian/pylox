@@ -19,7 +19,7 @@ class Environment:
 
         return environment
 
-    def getAt(self, distance: int, name: str) -> None:
+    def getAt(self, distance: int, name: str) -> Any:
         return self.ancestor(distance).values[name]
 
     def get(self, name: Token) -> Any:

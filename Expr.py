@@ -60,3 +60,7 @@ class This(Expr):
     def __init__(self, keyword: Token) -> None:
         self.keyword: Token = keyword
 
+class Super(Expr):
+    def __init__(self, keyword: Token, method: Token) -> None:
+        self.keyword: Token = keyword
+        self.method: Token = method

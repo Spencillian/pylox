@@ -338,6 +338,11 @@ class Parser:
             return Literal(None)
         elif self.match(TokenType.NUMBER, TokenType.STRING):
             return Literal(self.previous().literal)
+        elif self.match(TokenType.SUPER):
+            keyword: Token = self.previous()
+            self.consume(TokenType.DOT, "Expected '.' after 'super'.")
+            method: Token = self.consume(TokenType.IDENTIFIER, "Expected superclass method name.")
+            return Super(keyword, method)
         elif self.match(TokenType.THIS):
             return This(self.previous())
         elif self.match(TokenType.IDENTIFIER):

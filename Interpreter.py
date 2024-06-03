@@ -1,3 +1,4 @@
+from sre_compile import dis
 from Expr import *
 from LoxCallable import LoxInstance
 from Stmt import *
@@ -74,6 +75,8 @@ class Interpreter:
                 return self.visitSetExpr(expr)
             case This():
                 return self.visitThisExpr(expr)
+            case Super():
+                return self.visitSuperExpr(expr)
             case _:
                 raise Exception(f"Attempted to evaluate unmatched expression type.")
 
@@ -100,13 +103,17 @@ class Interpreter:
 
     def visitClassStmt(self, stmt: Class) -> None:
         superclass: Any = None
-        # if stmt.superclass is not None:
-        #     superclass = self.evaluate(stmt.superclass)
-        #     from LoxCallable import LoxClass
-        #     if not (type(superclass) is LoxClass):
-        #         raise RuntimeError(stmt.superclass.name, "Superclass must be a class.")
-        #
+        if stmt.superclass is not None:
+            superclass = self.evaluate(stmt.superclass)
+            from LoxCallable import LoxClass
+            if not (type(superclass) is LoxClass):
+                raise RuntimeError(stmt.superclass.name, "Superclass must be a class.")
+
         self.environment.define(stmt.name.lexeme, None)
+
+        if stmt.superclass is not None:
+            self.environment = Environment(self.environment)
+            self.environment.define("super", superclass)
 
         from LoxCallable import LoxFunction
         methods: dict[str, LoxFunction] = dict()
@@ -117,6 +124,11 @@ class Interpreter:
 
         from LoxCallable import LoxClass
         loxClass: LoxClass = LoxClass(stmt.name.lexeme, superclass, methods)
+
+        if superclass is not None:
+            assert self.environment.enclosing is not None
+            self.environment = self.environment.enclosing
+
         self.environment.assign(stmt.name, loxClass)
 
     def visitReturnStmt(self, stmt: Return) -> None:
@@ -160,7 +172,21 @@ class Interpreter:
         value: Any = self.evaluate(stmt.expression)
         print(self.stringify(value))
 
-    def visitThisExpr(self, expr: This) -> None:
+    def visitSuperExpr(self, expr: Super) -> Any:
+        distance: int = self.locals[expr]
+
+        from LoxCallable import LoxClass, LoxInstance, LoxFunction
+        superclass: LoxClass = self.environment.getAt(distance, "super")
+        thing: LoxInstance = self.environment.getAt(distance - 1, "this")
+
+        method: LoxFunction | None = superclass.findMethod(expr.method.lexeme)
+
+        if method is None:
+            raise RuntimeError(expr.method, f"Undefined property '{expr.method.lexeme}'.")
+
+        return method.bind(thing)
+
+    def visitThisExpr(self, expr: This) -> Any:
         return self.lookUpVariable(expr.keyword, expr)
 
     def visitSetExpr(self, expr: Set) -> Any:
@@ -188,6 +214,7 @@ class Interpreter:
 
         from LoxCallable import LoxCallable
         if not issubclass(type(callee), LoxCallable):
+            print(type(callee))
             raise RuntimeError(
                 expr.paren, 
                 "Can only call functions and classes.")

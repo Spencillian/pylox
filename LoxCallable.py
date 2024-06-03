@@ -98,6 +98,9 @@ class LoxClass(LoxCallable):
         if name in self.methods.keys():
             return self.methods[name]
 
+        if self.superclass is not None:
+            return self.superclass.findMethod(name)
+
         return None
 
 

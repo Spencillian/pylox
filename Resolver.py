@@ -12,6 +12,7 @@ class FunType(Enum):
 class ClassType(Enum):
     NONE = auto()
     CLASS = auto()
+    SUBCLASS = auto()
 
 class Resolver:
     def __init__(self, interpreter: Interpreter) -> None:
@@ -101,6 +102,8 @@ class Resolver:
                 self.visitSetExpr(expr)
             case This():
                 self.visitThisExpr(expr)
+            case Super():
+                self.visitSuperExpr(expr)
             case _:
                 print(f"Could not resolve expr of type: {type(expr)}")
 
@@ -154,14 +157,19 @@ class Resolver:
         self.declare(stmt.name)
         self.define(stmt.name)
 
-        # if (stmt.superclass is not None 
-        #         and stmt.name.lexeme == stmt.superclass.name.lexeme):
-        #     import Lox
-        #     Lox.parse_error(stmt.superclass.name, "A class can't inherit from itself.")
-        #
-        # if stmt.superclass is not None:
-        #     self.resolve(stmt.superclass)
-        #
+        if (stmt.superclass is not None 
+                and stmt.name.lexeme == stmt.superclass.name.lexeme):
+            import Lox
+            Lox.parse_error(stmt.superclass.name, "A class can't inherit from itself.")
+
+        if stmt.superclass is not None:
+            self.currentClass = ClassType.SUBCLASS
+            self.resolve(stmt.superclass)
+
+        if stmt.superclass is not None:
+            self.beginScope()
+            self.scopes[-1]["super"] = True
+
         self.beginScope()
         self.scopes[-1]["this"] = True
 
@@ -172,6 +180,10 @@ class Resolver:
             self.resolveFunction(method, declaration)
 
         self.endScope()
+
+        if stmt.superclass is not None:
+            self.endScope()
+
         self.currentClass = enclosingClass
 
     def visitWhileStmt(self, stmt: While) -> None:
@@ -200,6 +212,19 @@ class Resolver:
         if stmt.elseBranch is not None:
             self.resolve(stmt.elseBranch)
 
+    def visitExpressionStmt(self, stmt: Expression) -> None:
+        self.resolve(stmt.expression)
+
+    def visitSuperExpr(self, expr: Super) -> None:
+        if self.currentClass == ClassType.NONE:
+            import Lox
+            Lox.parse_error(expr.keyword, "Can't use 'super' outside of a class.")
+        elif self.currentClass != ClassType.SUBCLASS:
+            import Lox
+            Lox.parse_error(expr.keyword, "Can't use 'super' in a class with no superclass.")
+
+        self.resolveLocal(expr, expr.keyword)
+
     def visitThisExpr(self, expr: This) -> None:
         if self.currentClass == ClassType.NONE:
             import Lox
@@ -213,9 +238,6 @@ class Resolver:
     def visitLogicalExpr(self, expr: Logical) -> None:
         self.resolve(expr.left)
         self.resolve(expr.right)
-
-    def visitExpressionStmt(self, stmt: Expression) -> None:
-        self.resolve(stmt.expression)
 
     def visitSetExpr(self, expr: Set) -> None:
         self.resolve(expr.value)
