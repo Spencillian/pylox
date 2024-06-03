@@ -1,4 +1,4 @@
-from Expr import Expr, Token
+from Expr import *
 from abc import ABC
 
 class Stmt(ABC):
@@ -46,6 +46,7 @@ class Return(Stmt):
         self.value: Expr | None = value
 
 class Class(Stmt):
-    def __init__(self, name: Token, methods: list[Function]) -> None:
+    def __init__(self, name: Token, superclass: Variable | None, methods: list[Function]) -> None:
         self.name: Token = name
         self.methods: list[Function] = methods
+        self.superclass: Variable | None = superclass

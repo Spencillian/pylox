@@ -154,6 +154,14 @@ class Resolver:
         self.declare(stmt.name)
         self.define(stmt.name)
 
+        # if (stmt.superclass is not None 
+        #         and stmt.name.lexeme == stmt.superclass.name.lexeme):
+        #     import Lox
+        #     Lox.parse_error(stmt.superclass.name, "A class can't inherit from itself.")
+        #
+        # if stmt.superclass is not None:
+        #     self.resolve(stmt.superclass)
+        #
         self.beginScope()
         self.scopes[-1]["this"] = True
 

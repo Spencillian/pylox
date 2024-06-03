@@ -71,9 +71,10 @@ class LoxFunction(LoxCallable):
         return f"<fn {self.declaration.name.lexeme}>"
 
 class LoxClass(LoxCallable):
-    def __init__(self, name: str, methods: dict[str, LoxFunction]) -> None:
+    def __init__(self, name: str, superclass: LoxClass | None, methods: dict[str, LoxFunction]) -> None:
         self.name: str = name
         self.methods: dict[str, LoxFunction] = methods
+        self.superclass: LoxClass | None = superclass
 
     def call(self, interpreter: Interpreter, arguments: list[Any]) -> Any:
         instance: LoxInstance = LoxInstance(self)
@@ -93,6 +94,12 @@ class LoxClass(LoxCallable):
     def __str__(self) -> str:
         return f"<class {self.name}>"
 
+    def findMethod(self, name: str) -> LoxFunction | None:
+        if name in self.methods.keys():
+            return self.methods[name]
+
+        return None
+
 
 class LoxInstance:
     def __init__(self, loxClass: LoxClass) -> None:
@@ -106,10 +113,9 @@ class LoxInstance:
         if name.lexeme in self.fields.keys():
             return self.fields[name.lexeme]
 
-        if name.lexeme in self.loxClass.methods.keys():
-            method: LoxFunction = self.loxClass.methods[name.lexeme]
+        method: LoxFunction | None = self.loxClass.findMethod(name.lexeme)
+        if method is not None:
             return method.bind(self)
-
 
         raise RuntimeError(name, f"Undefined property '{name.lexeme}'.")
 

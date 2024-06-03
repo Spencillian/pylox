@@ -99,6 +99,13 @@ class Interpreter:
             self.environment = previous
 
     def visitClassStmt(self, stmt: Class) -> None:
+        superclass: Any = None
+        # if stmt.superclass is not None:
+        #     superclass = self.evaluate(stmt.superclass)
+        #     from LoxCallable import LoxClass
+        #     if not (type(superclass) is LoxClass):
+        #         raise RuntimeError(stmt.superclass.name, "Superclass must be a class.")
+        #
         self.environment.define(stmt.name.lexeme, None)
 
         from LoxCallable import LoxFunction
@@ -109,7 +116,7 @@ class Interpreter:
             methods[method.name.lexeme] = function
 
         from LoxCallable import LoxClass
-        loxClass: LoxClass = LoxClass(stmt.name.lexeme, methods)
+        loxClass: LoxClass = LoxClass(stmt.name.lexeme, superclass, methods)
         self.environment.assign(stmt.name, loxClass)
 
     def visitReturnStmt(self, stmt: Return) -> None:
