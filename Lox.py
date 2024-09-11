@@ -1,4 +1,4 @@
-#!/home/bonkedbygod/pylox/.venv/bin/python
+#!/usr/bin/env python3.12
 
 import sys
 from Scanner import Scanner, TokenType
